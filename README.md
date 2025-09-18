@@ -1,7 +1,7 @@
-# C∀ Syntax Highlighter
+# C∀ Tools
 
-C∀ Syntax Highlighter is a Visual Studio Code extension that brings syntax highlighting and lexical language support for the [C∀ (C-for-all)](https://cforall.uwaterloo.ca/) programming language.  
-This extension provides you with familiar C/C++ style highlighting for your C∀ projects, along with dedicated icons for `.cfa` source files and `.hfa` header files to improve code navigation.
+Unofficial CFA code support vscode extension - currently provides syntax highlighter and custom file icons. See the [CFA/C-for-all/C∀](https://cforall.uwaterloo.ca/) superset programming language of C.  
+This extension provides familiar C/C++ style simple syntax highlighting for C∀ projects, for both `.cfa` source files and `.hfa` header files to improve code navigation.
 
 
 ### Prerequisite Notice
@@ -9,8 +9,6 @@ This extension provides you with familiar C/C++ style highlighting for your C∀
 This extension is unofficial and not affiliated with the University of Waterloo or the C∀ project. Portions of the syntax definitions are derived from the C∀ project (Copyright University of Waterloo) under [C∀'s licencing clause](LICENCE).
 
 ## Features
-
-This extension provides:
 
 * Syntax highlighting for the C∀ programming language (`.cfa` and `.hfa` files), a superset of the C programming language
 * Custom file icons for `.cfa` source files and `.hfa` header files in the VSCode explorer.

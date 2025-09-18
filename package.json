@@ -1,11 +1,21 @@
 {
-    "name": "cfa-language-support",
-    "displayName": "C∀ Language Support",
-    "description": "Syntax highlighting support for the C∀ (C-for-all, CFA) language.",
+    "name": "cfa-tools",
+    "displayName": "C∀ Tools",
+    "description": "Unofficial CFA code tools vscode extension - currently provides syntax highlighter and custom file icons.",
     "version": "0.0.1",
-    "publisher": "Ahmed Shahriar",
+    "publisher": "AhmedShahriar",
     "engines": {
         "vscode": "^1.104.0"
+    },
+    "icon": "icons/cfa-128.png",
+    "homepage": "https://github.com/The-Ahmed-Shahriar/cfa-tools#readme",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/The-Ahmed-Shahriar/cfa-tools.git"
+    },
+    "bugs": {
+        "url": "https://github.com/The-Ahmed-Shahriar/cfa-tools/issues",
+        "email": "ahmed.shahriar343@gmail.com"
     },
     "categories": [
         "Programming Languages"
