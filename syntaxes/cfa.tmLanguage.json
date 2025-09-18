@@ -1,0 +1,188 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "CFA",
+	"scopeName": "source.cfa",
+	"patterns": [
+		{ "include": "#comments" },
+        { "include": "#preprocessor" },
+        { "include": "#keywords" },
+        { "include": "#attributes" },
+        { "include": "#function-call" },
+        { "include": "#constants" },
+        { "include": "#types" },
+        { "include": "#identifiers" },
+        { "include": "#literals" },
+        { "include": "#numbers" },
+        { "include": "#strings" },
+        { "include": "#operators" }
+	],
+	"repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.double-slash.cfa",
+                    "match": "//.*$"
+                },
+                {
+                    "name": "comment.block.cfa",
+                    "begin": "/\\*",
+                    "end": "\\*/"
+                }
+            ]
+        },
+        "preprocessor": {
+            "patterns": [
+                {
+                    "name": "meta.preprocessor.cfa",
+                    "begin": "^[ \t]*#\\s*(?=\\w+)",
+                    "end": "(?=$)",
+                    "patterns": [
+                        {
+                            "name": "keyword.control.directive.cfa",
+                            "match": "\\b(include|define|undef|if|ifdef|ifndef|else|elif|endif|error|pragma|line)\\b"
+                        },
+                        {
+                            "name": "string.quoted.other.lt-gt.include.cfa",
+                            "match": "<[^>]+>"
+                        },
+                        {
+                            "name": "string.quoted.double.include.cfa",
+                            "begin": "\"",
+                            "end": "\""
+                        },
+                        { "include": "#comments" },
+                        { "include": "#function-call" },
+                        { "include": "#constants" },
+                        { "include": "#types" },
+                        { "include": "#identifiers" },
+                        { "include": "#literals" },
+                        { "include": "#numbers" },
+                        { "include": "#strings" },
+                        { "include": "#operators" }
+                    ]
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.cfa",
+                    "match": "\\b(break|case|catch|choose|continue|default|do|else|finally|for|goto|if|resume|return|suspend|switch|throw|throwResume|try|while)\\b"
+                },
+                {
+                    "name": "keyword.declaration.cfa",
+                    "match": "\\b(auto|char|const|double|enum|exception_t|extern|float|inline|int|intmax_t|long|one_t|register|restrict|short|signed|static|struct|typedef|uintmax_t|unsigned|void|volatile|zero_t)\\b"
+                },
+                {
+                    "name": "keyword.cfa",
+                    "match": "\\b(basetypeof|coroutine|disable|enable|fallthrough|fixup|forall|generator|int128|monitor|mutex|report|trait|virtual|waitfor|when|with|dtype|otype|mutual|thread)\\b"
+                }
+            ]
+        },
+        "attributes": {
+            "patterns": [
+                {
+                    "name": "meta.attribute.cfa",
+                    "begin": "\\[\\[",
+                    "end": "\\]\\]"
+                }
+            ]
+        },
+        "function-call": {
+            "patterns": [
+                {
+                    "name": "support.function.cfa",
+                    "match": "\\b([_A-Za-z][_A-Za-z0-9]*)\\s*(?=\\()"
+                },
+                {
+                    "name": "entity.name.function.cfa",
+                    "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()"
+                }
+            ]
+        },
+        "constants": {
+            "name": "constant.other.cfa",
+            "match": "\\b[A-Z][A-Z0-9_]*\\b"
+        },
+        "types": {
+            "patterns": [
+                {
+                    "name": "entity.name.type.cfa",
+                    "match": "\\b[A-Z][_A-Za-z0-9]*\\b"
+                }
+            ]
+        },
+        "identifiers": {
+            "patterns": [
+                {
+                    "name": "entity.name.class.cfa",
+                    "match": "\\b[A-Z][_A-Za-z0-9]*\\b"
+                }
+            ]
+        },
+        "literals": {
+            "patterns": [
+                { "name": "constant.language.boolean.cfa", "match": "\\b(true|false)\\b" },
+                { "name": "constant.language.null.cfa", "match": "\\bNULL\\b" }
+            ]
+        },
+        "numbers": {
+            "patterns": [
+                {
+                    "name": "constant.numeric.hex.cfa",
+                    "match": "\\b0[xX][0-9a-fA-F]+[uUlL]*\\b"
+                },
+                {
+                    "name": "constant.numeric.binary.cfa",
+                    "match": "\\b0[bB][01]+[uUlL]*\\b"
+                },
+                {
+                    "name": "constant.numeric.octal.cfa",
+                    "match": "\\b0[0-7]+[uUlL]*\\b"
+                },
+                {
+                    "name": "constant.numeric.float.cfa",
+                    "match": "\\b[0-9]+(\\.[0-9]*)?([eE][-+]?[0-9]+)?[fFlL]?\\b"
+                },
+                {
+                    "name": "constant.numeric.decimal.cfa",
+                    "match": "\\b[0-9]+[uUlL]*\\b"
+                }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.cfa",
+                    "begin": "(u8|u|U|L)?\"",
+                    "end": "\"",
+                    "patterns": [
+                        { "match": "\\\\.", "name": "constant.character.escape.cfa" }
+                    ]
+                },
+                {
+                    "name": "string.quoted.single.cfa",
+                    "begin": "(u8|u|U|L)?'",
+                    "end": "'",
+                    "patterns": [
+                        { "match": "\\\\.", "name": "constant.character.escape.cfa" }
+                    ]
+                },
+                {
+                    "name": "string.quoted.raw.cfa",
+                    "begin": "(u8|u|U|L)?R\"([a-zA-Z0-9_]*)\\(",
+                    "end": "\\)\\2\"",
+                    "patterns": []
+                }
+            ]
+        },
+        "operators": {
+            "patterns": [
+                {
+                    "name": "keyword.operator.cfa",
+                    "match": "(\\+\\+|--|->|&&|\\|\\||<<|>>|<=|>=|==|!=|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|<<=|>>=|\\?|:|\\+|-|\\*|/|%|&|\\||\\^|~|!|<|>|=)"
+                }
+            ]
+        }
+	}
+}

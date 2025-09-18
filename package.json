@@ -1,0 +1,43 @@
+{
+    "name": "cfa-language-support",
+    "displayName": "C∀ Language Support",
+    "description": "Syntax highlighting support for the C∀ (C-for-all, CFA) language.",
+    "version": "0.0.1",
+    "publisher": "Ahmed Shahriar",
+    "engines": {
+        "vscode": "^1.104.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "cfa",
+                "aliases": ["CFA", "cfa", "C-for-all", "c-for-all", "C∀"],
+                "extensions": [".cfa"],
+                "configuration": "./language-configuration.json",
+                "icon": { "light": "./icons/cfa-32.png", "dark": "./icons/cfa-32.png" }
+            },
+            {
+                "id": "cfa-header",
+                "aliases": ["CFA Header", "cfa header", "C-for-all Header", "c-for-all header", "C∀ Header", "hfa", "HFA"],
+                "extensions": [".hfa"],
+                "configuration": "./language-configuration.json",
+                "icon": { "light": "./icons/hfa-32.png", "dark": "./icons/hfa-32.png" }
+            }
+        ],
+        "grammars": [
+            {
+                "language": "cfa",
+                "scopeName": "source.cfa",
+                "path": "./syntaxes/cfa.tmLanguage.json"
+            },
+            {
+                "language": "cfa-header",
+                "scopeName": "source.cfa",
+                "path": "./syntaxes/cfa.tmLanguage.json"
+            }
+        ]
+    }
+}
