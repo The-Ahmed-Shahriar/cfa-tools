@@ -1,8 +1,11 @@
 .env
 .vscode
-.vscode/**
-.vscode-test/**
+.vscode-test
 *.vsix
+client/server
 node_modules
+out
 test
+tmp
+tsconfig.tsbuildinfo
 vsc-extension-quickstart.md

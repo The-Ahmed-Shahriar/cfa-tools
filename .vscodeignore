@@ -6,4 +6,5 @@
 *.vsix
 node_modules
 test
+tmp
 vsc-extension-quickstart.md

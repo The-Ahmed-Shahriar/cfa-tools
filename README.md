@@ -17,12 +17,7 @@ This extension is unofficial and not affiliated with the University of Waterloo 
 
 * Preprocessor directives (e.g., `#include`, `#define`) have a different colour between the `#` character and the directive name
 * Identifier highlighting inconsistencies between certain capitalized vs. pascal-case namings
-* No intellisense or tokenizing available - under development
 
-## Release Notes
+## Contact
 
-Users appreciate release notes as you update your extension.
-
-### 0.0.1
-
-Initial release of CFA Syntax Highlighter
+For feedback or bug notices, feel free to reach out through Github or by email: [ahmed.shahriar343@gmail.com](mailto:ahmed.shahriar343@gmail.com).
