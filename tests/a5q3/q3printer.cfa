@@ -1,0 +1,258 @@
+#include <fstream.hfa>              // sout, ostream
+#include <mutex_stmt.hfa>           // mutex
+#include <stdlib.hfa>               // aalloc, adelete
+#include "q3common.hfa" 			// PRINT
+#include "q3printer.hfa"            // Printer, Buffer
+
+
+// =========================== //
+// ===== BUFFER ROUTINES ===== //
+// =========================== //
+
+/**
+ * Buffer::ctor
+ *   Setup an empty buffer cell with no entry info.
+ *   @param this This buffer space.
+ */
+void ?{}( Buffer & this ) {
+	this.empty = true;
+} // Buffer::ctor
+
+/**
+ * Buffer::writeTo
+ *   Unconditionally populate (overwrite!) this buffer space with new entry parameters, also indicating non-emptiness.
+ *   @param this This buffer space.
+ *   @param state The state to print.
+ *   @param type0  The type to interpret the first print argument entry.
+ *   @param entry0 The first print argument entry.
+ *   @param type1  The type to interpret the second print argument entry.
+ *   @param entry1 The second print argument entry.
+ *   @param type2  The type to interpret the third print argument entry.
+ *   @param entry2 The third print argument entry.
+ *   @param entry2 The separator character **between the arguments only!** (not after `state`).
+ */
+void writeTo( Buffer & this, States state,
+		EntryType type0, uint entry0,
+		EntryType type1, uint entry1,
+		EntryType type2, uint entry2,
+		char sep ) with(this) {
+	empty = false;
+	this.state = state;
+	types[0] = type0; entries[0] = entry0;
+	types[1] = type1; entries[1] = entry1;
+	types[2] = type2; entries[2] = entry2;
+	this.sep = sep;
+} // Buffer::writeTo
+
+
+forall( ostype | ostream( ostype ) ) {
+	/**
+	 * ostream::?|? (Buffer) (1)
+	 *   Buffer output operator to any output stream. This **flushes** the buffer, so the buffer is always empty after 
+	 *   this output.
+	 *   @param os The output stream to feed to.
+	 *   @param buf This buffer space.
+	 *   @return `os` The output stream fed to.
+	 */
+	ostype & ?|?( ostype & os, Buffer & buf ) with(buf) {
+		if ( empty ) { return os; } 	// just print empty cell if empty buffer
+		empty = true; 					// buffer flushed - mark empty
+		os | (char)state; 				// use space after state char
+		ARGS: for ( i; ENT ) {
+			char s = ( i == 0 ) ? ' ' : sep;
+			EntryType t = types[i]; 	// BUG: choose( types[i] ) doesn't compile :O
+			choose( t ) { 				// choose argument entry type interpretation
+				case None: break ARGS;
+				case Char: os | s | (char)entries[i];
+				case Uint: os | s | entries[i];
+			} // choose
+		} // for
+		return os;
+	} // ostream::?|? (Buffer) (1)
+	
+	/**
+	 * ostream::?|? (Buffer) (2)
+	 *   The terminal overload of ostream::?|? (Buffer) (1).
+	 *   @param os The output stream to feed to.
+	 *   @param buf This buffer space.
+	 */
+	void ?|?( ostype & os, Buffer & buf ) with(buf) {
+		(ostype&) (os | buf);
+	} // ostream::?|? (Buffer) (2)
+} // forall
+
+
+// =================================== //
+// ===== PRINTER PRIVATE MEMBERS ===== //
+// =================================== //
+
+/**
+ * Printer::flushIfFull
+ *   Ensures that the current voter thread's buffer is empty. If not empty, all the buffers are flushed to output on a
+ *   single line, affectively emptying all buffers including the intended one.
+ *   @param this This printer monitor.
+ *   @param id The currently running voter's identifier.
+ */
+void flushIfFull( Printer & this, uint id ) with(this) {
+	if ( buffers[id].empty ) { return; } 	// Already empty => done :)
+	for ( cur; voters ) { 					// Otherwise, flush every buffer
+		sout | buffers[cur] | '\t'; 		// All buffers separated by one tab, assumedly
+	} // for
+	sout | nl; 								// Ready for next line
+} // Printer::flushIfFull
+
+
+// ================================== //
+// ===== PRINTER PUBLIC MEMBERS ===== //
+// ================================== //
+
+/**
+ * Printer::ctor
+ *   Initialize the printer with a buffer reserved for each voter thread, identified [0..`voters`-1]. The header of the
+ *   table is also printed here, readying the output stream for a flush.
+ *   @param this This printer monitor.
+ *   @param voters The set number of tourists today (this simulation).
+ */
+void ?{}( Printer & this, uint voters ) {
+	sout | nlOff;                   // no implicit new lines
+	this.voters = voters;
+	this.buffers = aalloc( voters );
+
+	for ( id; voters ) {
+		?{}( this.buffers[id] );    // initialize each buffer
+		PRINT( sout | 'V' | id | '\t'; )   	// output header for each voter
+	} // for
+	PRINT( sout | nl );
+	for ( id; voters ) {
+		PRINT( sout | "*******\t"; )  		// output header separator
+	} // for
+	PRINT( sout | nl );
+} // Printer::ctor
+
+/**
+ * Printer::dtor
+ *   Teardown the printer, flushing any remaining contents to one last line, then print the touring epilogue.
+ *   @param this This printer monitor.
+ */
+void ^?{}( Printer & mutex this ) with(this) {
+	for ( id; voters ) { 				// flush any remaining buffer entries
+		flushIfFull( this, id ); 		// *exactly* one of these will trigger the flush if any non-empty
+	} // for
+	PRINT( sout | "*****************" | nl; ) 	// epilogue
+	PRINT( sout | "All tours ended" | nl; )		// epilogue
+	adelete( buffers ); 				// deallocate buffer VLA
+} // Printer::dtor
+
+/**
+ * Printer::print (1)
+ *   Emplace a buffer entry for the indicated voter thread, flushing all buffers if necessary.
+ *   @param this This printer monitor.
+ *   @param id The currently running voter's identifier.
+ *   @param state The state to post to the buffer entry.
+ */
+void print( Printer & this, uint id, States state ) with(this) {
+	flushIfFull( this, id );
+	writeTo(
+		buffers[id], state, 	// S/D/X
+		None, 0u, 				// 
+		None, 0u, 				// 
+		None, 0u, 				// 
+		' ' 					// 
+	);
+} // Printer::print (1)
+
+/**
+ * Printer::print (2)
+ *   Alternate overload of Printer::print (1).
+ *   @param this See Printer::print (1).
+ *   @param id See Printer::print (1).
+ *   @param state See Printer::print (1).
+ *   @param tourkind The kind of tour decided upon -- for the buffer's first argument entry.
+ */
+void print( Printer & this, uint id, States state, TourKind tourkind ) with(this) {
+	flushIfFull( this, id );
+	writeTo(
+		buffers[id], state, 	// C
+		Char, tourkind,			// t
+		None, 0u, 				// 
+		None, 0u, 				// 
+		' ' 					// 
+	);
+} // Printer::print (2)
+
+/**
+ * Printer::print (3)
+ *   Alternate overload of Printer::print (1).
+ *   @param this See Printer::print (1).
+ *   @param id See Printer::print (1).
+ *   @param state See Printer::print (1).
+ *   @param tour The tour group information -- for the buffer's first and second argument entries.
+ */
+void print( Printer & this, uint id, States state, Tour tour ) with(this,tour) {
+	flushIfFull( this, id );
+	writeTo(
+		buffers[id], state, 	// G
+		Char, tourkind, 		// t
+		Uint, groupno, 			// gn
+		None, 0u, 				// 
+		' ' 					// 
+	);
+} // Printer::print (3)
+
+/**
+ * Printer::print (4)
+ *   Alternate overload of Printer::print (1).
+ *   @param this See Printer::print (1).
+ *   @param id See Printer::print (1).
+ *   @param state See Printer::print (1).
+ *   @param vote The voting ballot OR total tour counts -- for all three of buffer's argument entries.
+ */
+void print( Printer & this, uint id, States state, Ballot vote ) with(this,vote) {
+	flushIfFull( this, id );
+	writeTo(
+		buffers[id], state, 	// V/T
+		Uint, picture, 			// p
+		Uint, statue, 			// s
+		Uint, giftshop, 		// g
+		',' 					// (commas between p,s,g)
+	);
+} // Printer::print (4)
+
+/**
+ * Printer::print (5)
+ *   Alternate overload of Printer::print (1).
+ *   @param this See Printer::print (1).
+ *   @param id See Printer::print (1).
+ *   @param state See Printer::print (1).
+ *   @param numBlocked The number of waiting threads -- for the buffer's first argument entry.
+ */
+void print( Printer & this, uint id, States state, uint numBlocked ) with(this) {
+	flushIfFull( this, id );
+	writeTo(
+		buffers[id], state, 	// B/U
+		Uint, numBlocked, 		// n
+		None, 0u, 				// 
+		None, 0u, 				// 
+		' ' 					// 
+	);
+} // Printer::print (5)
+
+/**
+ * Printer::print (6)
+ *   Alternate overload of Printer::print (1).
+ *   @param this See Printer::print (1).
+ *   @param id See Printer::print (1).
+ *   @param state See Printer::print (1).
+ *   @param numBlocked See Printer::print (5).
+ *   @param group The group number barging on -- for the buffer's second argument entry.
+ */
+void print( Printer & this, uint id, States state, uint numBlocked, uint groupno ) with(this) {
+	flushIfFull( this, id );
+	writeTo(
+		buffers[id], state, 	// b
+		Uint, numBlocked, 		// n
+		Uint, groupno, 			// gn
+		None, 0u, 				// 
+		' ' 					// 
+	);
+} // Printer::print (6)

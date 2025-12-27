@@ -1,0 +1,19 @@
+#ifndef __COMMON_HFA__
+#define __COMMON_HFA__
+
+#include <Exception.hfa>            // ExceptionDecl, ExceptionInst
+
+#if defined( NOOUTPUT )
+#define PRINT( stmt )
+#else
+#define PRINT( stmt ) stmt
+#endif // NOOUTPUT
+
+// === Common Type declarations === //
+typedef unsigned int uint;
+ExceptionDecl( Failed );
+struct Ballot { uint picture, statue, giftshop; };
+enum TourKind { Picture='p', Statue='s', GiftShop='g' };
+struct Tour { TourKind tourkind; uint groupno; };
+
+#endif // __COMMON_HFA__

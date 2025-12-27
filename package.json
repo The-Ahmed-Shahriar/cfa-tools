@@ -1,57 +1,86 @@
 {
-    "name": "cfa-tools",
-    "version": "0.1.0",
-    "displayName": "C∀ Tools",
-    "description": "Unofficial CFA code tools vscode extension - currently provides syntax highlighter and custom file icons.",
+	"name": "cfa-tools",
+	"displayName": "C∀ Tools",
+	"description": "Unofficial CFA code tools vscode extension - currently provides syntax highlighter and custom file icons.",
 	"license": "BSD-3-Clause",
-    "publisher": "AhmedShahriar",
-    "engines": {
-        "vscode": "^1.104.0"
-    },
-    "icon": "icons/cfa-128.png",
-    "homepage": "https://github.com/The-Ahmed-Shahriar/cfa-tools#readme",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/The-Ahmed-Shahriar/cfa-tools.git"
-    },
-    "bugs": {
-        "url": "https://github.com/The-Ahmed-Shahriar/cfa-tools/issues",
-        "email": "ahmed.shahriar343@gmail.com"
-    },
-    "categories": [
-        "Programming Languages"
-    ],
+	"version": "0.1.0",
+	"author": "AhmedShahriar",
+	"publisher": "AhmedShahriar",
+	"engines": {
+		"vscode": "^1.104.0"
+	},
+	"icon": "icons/cfa-128.png",
+	"homepage": "https://github.com/The-Ahmed-Shahriar/cfa-tools#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/The-Ahmed-Shahriar/cfa-tools.git"
+	},
+	"bugs": {
+		"url": "https://github.com/The-Ahmed-Shahriar/cfa-tools/issues",
+		"email": "ahmed.shahriar343@gmail.com"
+	},
+	"categories": [
+		"Programming Languages"
+	],
 	"main": "./client/out/extension",
-    "contributes": {
-        "languages": [
-            {
-                "id": "cfa",
-                "aliases": ["CFA", "cfa", "C-for-all", "c-for-all", "C∀"],
-                "extensions": [".cfa"],
-                "configuration": "./language-configuration.json",
-                "icon": { "light": "./icons/cfa-32.png", "dark": "./icons/cfa-32.png" }
-            },
-            {
-                "id": "cfa-header",
-                "aliases": ["CFA Header", "cfa header", "C-for-all Header", "c-for-all header", "C∀ Header", "hfa", "HFA"],
-                "extensions": [".hfa"],
-                "configuration": "./language-configuration.json",
-                "icon": { "light": "./icons/hfa-32.png", "dark": "./icons/hfa-32.png" }
-            }
-        ],
-        "grammars": [
-            {
-                "language": "cfa",
-                "scopeName": "source.cfa",
-                "path": "./syntaxes/cfa.tmLanguage.json"
-            },
-            {
-                "language": "cfa-header",
-                "scopeName": "source.cfa",
-                "path": "./syntaxes/cfa.tmLanguage.json"
-            }
-        ]
-    },
+	"contributes": {
+		"languages": [
+			{
+				"id": "cfa",
+				"aliases": [
+					"CFA",
+					"cfa",
+					"C-for-all",
+					"c-for-all",
+					"cforall",
+					"Cforall",
+					"C∀"
+				],
+				"extensions": [
+					".cfa"
+				],
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"light": "./icons/cfa-32.png",
+					"dark": "./icons/cfa-32.png"
+				}
+			},
+			{
+				"id": "cfa-header",
+				"aliases": [
+					"CFA Header",
+					"cfa header",
+					"C-for-all header",
+					"c-for-all header",
+					"cforall header",
+					"Cforall header",
+					"C∀ Header",
+					"hfa",
+					"HFA"
+				],
+				"extensions": [
+					".hfa"
+				],
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"light": "./icons/hfa-32.png",
+					"dark": "./icons/hfa-32.png"
+				}
+			}
+		],
+		"grammars": [
+			{
+				"language": "cfa",
+				"scopeName": "source.cfa",
+				"path": "./syntaxes/cfa.tmLanguage.json"
+			},
+			{
+				"language": "cfa-header",
+				"scopeName": "source.cfa",
+				"path": "./syntaxes/cfa.tmLanguage.json"
+			}
+		]
+	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -b",
@@ -59,7 +88,27 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"devDependencies": {
-		"@types/node": "^20.5.7",
+		"@types/node": "^20.19.27",
+		"@types/vscode": "^1.107.0",
 		"typescript": "^5.2.2"
+	},
+	"directories": {
+		"test": "tests"
+	},
+	"keywords": [
+		"Cforall",
+		"CFA",
+		"cfa",
+		"cforall",
+		"C",
+		"programming",
+		"language",
+		"concurrency",
+		"parallelism"
+	],
+	"dependencies": {
+		"vscode-languageclient": "^9.0.1",
+		"vscode-languageserver": "^9.0.1",
+		"vscode-languageserver-textdocument": "^1.0.12"
 	}
 }

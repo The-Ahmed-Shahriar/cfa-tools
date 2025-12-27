@@ -1,0 +1,50 @@
+#ifndef __PRINTER_HFA__
+#define __PRINTER_HFA__
+
+#include <fstream.hfa> 				// ostream
+#include <monitor.hfa>              // monitor
+#include "q3common.hfa"             // TourKind, Tour, Ballot
+
+	  
+// === Printer Interal Structs ===//
+enum { ENT = 3 };
+enum EntryType { None, Char, Uint };
+enum States { Start = 'S', Vote = 'V', Block = 'B', Unblock = 'U', Barging = 'b',
+	  Done = 'D', Complete = 'C', Going = 'G', Failure = 'X', Terminated = 'T' };
+
+struct Buffer {
+	bool empty;
+	States state;
+	EntryType types[ENT];
+	uint entries[ENT];
+	char sep;
+}; // Buffer
+
+// default ctor type
+void ?{}( Buffer & );
+void writeTo( Buffer &, States, EntryType=None, uint=0u, EntryType=None, uint=0u, EntryType=None, uint=0u, char=' ' );
+
+// output operators for Buffer
+forall( ostype | ostream( ostype ) ) {
+	ostype & ?|?( ostype &, Buffer & );
+	void ?|?( ostype &, Buffer & );
+} // forall
+
+
+// === Printer Declarations === //
+monitor Printer {
+	uint voters; 		// number of voters (constant)
+	Buffer *buffers; 	// buffers (handle cyclically)
+};
+
+void ?{}( Printer &, uint voters );
+void ^?{}( Printer & mutex ); 		// need dtor for buffers deallocation and printing epilogues
+void print( Printer &, uint id, States state );
+void print( Printer &, uint id, States state, TourKind tourkind );
+void print( Printer &, uint id, States state, Tour tour );
+void print( Printer &, uint id, States state, Ballot vote );
+void print( Printer &, uint id, States state, uint numBlocked );
+void print( Printer &, uint id, States state, uint numBlocked, uint groupno );
+
+
+#endif // __PRINTER_HFA__

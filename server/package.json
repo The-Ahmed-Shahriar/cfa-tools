@@ -1,18 +1,20 @@
 {
-  "name": "REPLACE_ME",
-  "description": "REPLACE_ME",
-  "version": "1.0.0",
-  "author": "REPLACE_ME",
-  "license": "MIT",
-  "engines": {
-    "node": "*"
-  },
-  "repository": {
-    "type": "git",
-    "url": "REPLACE_ME"
-  },
-  "dependencies": {
-    "vscode-languageserver": "^8.1.0",
-    "vscode-languageserver-textdocument": "^1.0.8"
-  }
+  	"name": "cfa-tools",
+	"displayName": "C∀ Tools",
+	"description": "Unofficial CFA code tools vscode extension - currently provides syntax highlighter and custom file icons.",
+	"license": "BSD-3-Clause",
+	"version": "0.1.0",
+	"publisher": "AhmedShahriar",
+	"author": "AhmedShahriar",
+	"engines": {
+		"node": "*"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/The-Ahmed-Shahriar/cfa-tools.git"
+	},
+	"dependencies": {
+		"vscode-languageserver": "^8.1.0",
+		"vscode-languageserver-textdocument": "^1.0.8"
+	}
 }

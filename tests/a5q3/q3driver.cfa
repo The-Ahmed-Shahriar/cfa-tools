@@ -1,0 +1,124 @@
+// Purpose: Driver code for the b[oundedB]uffer program
+//
+// Command syntax:
+//   $ vote [ voters | 'd' [ group | 'd' [ tours | 'd' [ seed | 'd' [ processors | 'd' ]]]]]
+//   
+//   all arguments are optional:
+//     voters: (default=6) The number of voters (tasks to be started) (0, 100].
+//     groups: (default=3) The size of any tour group (> 0).
+//     tours: (default=1) The number of tours each voter takes of the museum (> 0).
+//     seed: (default=random) The seed for the (concurrent safe, pseudo-) random number generator (> 0).
+//     processors: (default=1) The number of processors for parallelism (> 0).
+// 
+// Examples:
+//   $ vote
+//   $ vote 10
+//   $ vote 10 3
+//   $ vote 10 3 17
+//   $ vote 10 3 17 20931102
+//   $ vote 10 3 17 20931102 8
+// 
+
+#include <Exception.hfa>                                    // ExceptionDecl, ExceptionInst
+#include <fstream.hfa>									    // sin/sout, end_of_file
+#include <kernel.hfa>                                       // processor
+#include <limits.h>                                         // INT_MAX
+#include <stdlib.hfa>                                       // convert
+#include <string.h>                                         // strcmp
+#include "q3printer.hfa"                                    // Printer
+#include "q3tallyVotes.hfa"                                 // TallyVotes, Voter
+
+ExceptionDecl( cmd_error );
+
+enum {
+    DefaultVoters = 6,
+    DefaultGroups = 3,
+    DefaultTours = 1,
+    DefaultSeed = -1,           // handle manually
+    DefaultProcessors = 1,
+	DefaultTest = "weeee"
+}; // enum
+
+enum {
+    MaxVoters = 100
+}; // enum
+
+
+/**
+ * runLogic
+ *   Orchestrates the Lourvre tourism simulation.
+ *   @param voters See docs at the top.
+ *   @param groups See docs at the top.
+ *   @param tours See docs at the top.
+ *   @param seed See docs at the top.
+ *   @param processors See docs at the top.
+ */
+void runLogic( int voters, int groups, int tours, int seed, int processors ) {
+    if ( seed != DefaultSeed ) { set_seed( seed ); }        // set global prng seed
+    processor p[processors - 1] __attribute__(( unused ));  // create more kernel threads
+
+    Printer printer = { voters };
+    TallyVotes voteTallier = { voters, groups, printer };
+    Voter * tourists[voters];
+
+    for ( id; voters ) {                                    // initialize each voter thread/tourist (on heap)
+        tourists[id] = malloc();
+        ?{}( *tourists[id], id, tours, voteTallier, printer );
+    } // for
+    for ( id; voters ) { delete( tourists[id] ); }          // join on all tourists
+} // runLogic
+
+
+/**
+ * argint
+ *   For brevity in argument parsing here.
+ *   @param var The argument variable to set.
+ *   @param arg The C-string corresponding to `var`'s argument from main's `argv`.
+ *   @param maxVal The maximum integral value allowed for `var`, so that its domain is (0,maxVal]. By default, infinite.
+ */
+void argint( int & var, char * arg, int maxVal = INT_MAX ) {
+    if ( strcmp( arg, "d" ) != 0 ) {            // default ?
+        var = convert( arg );
+        if ( var <= 0 || var > maxVal ) {       // invalid ?
+            throw ExceptionInst( cmd_error );
+        } // if
+    } // if
+} // argint
+
+/**
+ * ::main
+ *   Main driver function - parses command line args and dispatches to appropriate program logic.
+ *   @param argc The number of command line args.
+ *   @param argv The command line args in a VLA of C-strings.
+ *   @return program execution status code.
+ */
+int main( int argc, char * argv[] ) {
+    int voters = DefaultVoters;
+    int groups = DefaultGroups;
+    int tours = DefaultTours;
+    int seed = DefaultSeed;
+    int processors = DefaultProcessors;
+
+	try {
+        switch ( argc ) {                                   // handle each arg generally
+            case 6: argint( processors, argv[5] ); fallthrough;
+            case 5: argint( seed,       argv[4] ); fallthrough;
+            case 4: argint( tours,      argv[3] ); fallthrough;
+            case 3: argint( groups,     argv[2] ); fallthrough;
+            case 2: argint( voters,     argv[1], MaxVoters ); fallthrough;
+            case 1: break;
+            default: throw ExceptionInst( cmd_error );
+        } // switch
+
+	} catch( exception_t * ) {							    // catch any
+		exit | "usage: " | argv[0]
+             | "[ voters (0," | MaxVoters | "] | 'd' (default " | DefaultVoters
+             | ") [ groups (> 0) | 'd' (default " | DefaultGroups
+             | ") [ tours (> 0) | 'd' (default " | DefaultTours
+             | ") [ seed (> 0) | 'd' (default random"
+             | ") [ processors (> 0) | 'd' (default " | DefaultProcessors
+             | "] ] ] ] ] ]";
+	} // try
+    
+    runLogic( voters, groups, tours, seed, processors );
+} // ::main

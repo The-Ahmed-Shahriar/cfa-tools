@@ -1,0 +1,74 @@
+#ifndef __TALLY_VOTES_HFA__
+#define __TALLY_VOTES_HFA__
+
+#include <monitor.hfa>              // monitor, condition
+#include <thread.hfa>               // thread
+#include "q3common.hfa"             // TourKind, Tour, Ballot, Failed
+#include "q3printer.hfa" 			// Printer
+
+#if defined ( INTB )
+#include "BargingCheckVote.h" 		// BCHECK_DECL, VOTER_ENTER, VOTER_LEAVE
+#elif defined ( AUTO )
+#include "AutomaticSignal.hfa" 		// AUTOMATIC_SIGNAL, WAITUNTIL, EXIT, DEFEREXIT
+#endif
+
+
+// === TallyVotes Struct Declarations === //
+#if defined( TASK )
+thread TallyVotes {
+#else
+monitor TallyVotes {
+#endif
+    uint voters;                    // number of **REMAINING** voters
+    uint group;                     // group size
+    uint groupno;                   // next tour group number to assign
+    uint prank, srank, grank;       // current group's total ranking - these need mutual exclusion to access!
+    Tour res;                       // resulting tour
+    Printer & printer;              // printer
+
+	uint blocked; 					// number of blocked voters (numBlocked) --> very common, so define up here
+
+    #if defined( EXT )              // external scheduling monitor solution
+	bool groupFormed; 				// flag variable for group formation
+
+    #elif defined( INT )            // internal scheduling monitor solution
+	condition bench; 				// only one condition variable needed for tour deciding sync
+
+    #elif defined( INTB )           // internal scheduling monitor solution with barging
+    condition bench; 				// only one condition variable (variable name may be changed)
+	uint * ticket; 					// bakery tickets, size `voters` - priority by id
+	bool signalling; 				// signalling flag - to detect barging in bakery
+	uint barging; 					// the number of barging voters
+
+    #elif defined( AUTO )           // automatic-signal monitor solution
+	AUTOMATIC_SIGNAL; 				// automatic signalling struct declarations
+	bool groupFormed; 				// flag variable for group formation
+
+    #elif defined( TASK )           // internal/external scheduling task solution
+	condition cv_vote; 				// tour group vote intent sync (I)-(II)
+	condition cv_cast; 				// tour group cast results sync (II)-(III)
+	uint id; 						// copy-in id parameter (for printing)
+
+    #else
+    #error unsupported voter type
+    #endif
+}; // TallyVotes
+
+#if defined( TASK )
+#define MUTEX 
+#else
+#define MUTEX mutex
+#endif
+
+void ?{}( TallyVotes &, uint voters, uint group, Printer & );
+void ^?{}( TallyVotes & mutex );
+Tour vote( TallyVotes & MUTEX, uint id, Ballot );
+void done( TallyVotes & mutex, uint id );         	// ignore `id` if not needed
+
+
+// === Voter Declarations === //
+thread Voter { uint id, tours; TallyVotes & voteTallier; Printer & printer; };
+void ?{}( Voter &, uint id, uint tours, TallyVotes & voteTallier, Printer & );
+
+
+#endif // __TALLY_VOTES_HFA__

@@ -1,0 +1,36 @@
+================
+ CS 343 A5Q3(b)
+================
+
+  i. === Data ===
+    Env:  ubuntu2404-010.student.cs.uwaterloo.ca
+    Compile: make clean vote VIMPL=<vimpl> BCHECK=NOBARGINGCHECK OUTPUT=NOOUTPUT
+    Run: /usr/bin/time -f "${FMT}" ./vote 50 10 40000 1003 <procs>
+
+    Results:
+
+    Timing vote( EXT,  1 ): 1.53u 0.03s 0:01.56r 3072kb
+	Timing vote( INT,  1 ): 1.46u 0.02s 0:01.48r 3072kb
+	Timing vote( INTB, 1 ): 2.07u 0.02s 0:02.09r 3072kb
+	Timing vote( AUTO, 1 ): 2.72u 0.02s 0:02.74r 3072kb
+	Timing vote( TASK, 1 ): 3.41u 0.03s 0:03.43r 3072kb
+
+	Timing vote( EXT,  2 ): 5.96u 1.60s 0:04.51r 3072kb
+	Timing vote( INT,  2 ): 4.56u 1.44s 0:03.69r 3072kb
+	Timing vote( INTB, 2 ): 6.70u 2.87s 0:06.06r 3072kb
+	Timing vote( AUTO, 2 ): 5.97u 2.61s 0:05.41r 3072kb
+	Timing vote( TASK, 2 ): 13.29u 4.69s 0:11.31r 3072kb
+
+
+  ii. === Performance Differences ===
+	Similar observations hold here as in A4Q2 (b) -- the uniprocessor runs still outperform the multiprocessor runs, 
+	yet again by 3-fold roughly. Between the implementations, they rank INT < EXT < INTB < AUTO < TASK, all of which 
+	are spread out roughly evenly. The only outlier, one might argue, would be the timing reults for multiprocessor run
+	of TASK, which seems to differ quite significantly from the others, at least by a factor of 2.
+
+
+  iii. === Performance Speculation - Kernel Threads ===
+    Even though we have more kernel threads, no more than one task can enter the critical section(s) and actually do 
+	the voting work they intend to. More time is spent waiting in FIFO order mostly, in order to ensure both mutual 
+	exclusion and synchronization across all tasks / user threads.
+    

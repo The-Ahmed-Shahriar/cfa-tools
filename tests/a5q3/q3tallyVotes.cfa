@@ -1,0 +1,567 @@
+#include <limits.h> 					// INT_MAX
+#include <mutex_stmt.hfa>               // mutex
+#include <stdlib.hfa>                   // rand
+#include "q3common.hfa" 				// PRINT
+#include "q3printer.hfa"                // Printer
+#include "q3tallyVotes.hfa"             // TallyVotes, Voter, 
+
+#if defined( INTB )
+BCHECK_DECL;
+#endif
+
+
+// ===================================== //
+// ===== TALLYVOTES COMMON MEMBERS ===== //
+// ===================================== //
+
+/**
+ * TallyVotes::ctor
+ *   Initialize this vote tallier struct with static voter count, output printer, and any implementation specific 
+ *   details.
+ *   @param this This vote tallier object.
+ *   @param voters The set number of tourists today (this simulation).
+ *   @param group The set number of tourists allowed in a group.
+ *   @param printer The output mechanism.
+ */
+void ?{}( TallyVotes & this, uint voters, uint group, Printer & printer ) with(this) {
+	this.[voters,group,groupno] = [voters,group,1];
+	&this.printer = &printer;
+	prank = srank = grank = 0;
+	blocked = 0;
+
+	#if defined( EXT )
+
+    #elif defined( INT )
+
+    #elif defined( INTB )
+	ticket = aalloc( voters ); 					// need dynamic alloc
+	for ( j; voters ) { ticket[j] = INT_MAX; } 	// initialize each ticket with no intent, "infinity"
+	signalling = false;
+	barging = 0;
+
+    #elif defined( AUTO )
+	groupFormed = false;
+
+    #elif defined( TASK )
+
+	#endif
+} // TallyVotes::ctor
+
+/**
+ * TallyVotes::dtor
+ *   Teardown resources if needed in certain implementations.
+ *   @param this This vote tallier object.
+ */
+void ^?{}( TallyVotes & mutex this __attribute__(( unused )) ) {
+	#if defined( INTB )
+	adelete( this.ticket );
+	#endif
+} // TallyVotes::dtor
+
+/**
+ * TallyVotes::quorum_check
+ *   Simply check for quorum failure, throwing if failed - common definition, can be overloaded in other impls.
+ *   @param this This vote tallier object.
+ *   @throws `Failed` If quorum failure was detected outside of group formation.
+ */
+void quorum_check( TallyVotes & this ) with(this) {
+	if ( voters >= group ) { return; }  // no quorum failure ?
+	throw ExceptionInst( Failed );      // raise failure exception locally
+} // TallyVotes::quorum_check
+
+/**
+ * TallyVotes::decide_tour
+ *   Run the ranked voting, decide the tour to run (storing result in `res`), and cleanup for next tourist group.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ */
+void decide_tour( TallyVotes & mutex this, uint id __attribute__(( unused )) ) with(this) {
+	TourKind tk = ( srank > grank && srank > prank ) ? Statue
+				: ( prank > grank ) ? Picture
+				: GiftShop;
+	res{ tk, groupno };         // record resulting tour decision
+	PRINT( print( printer, id, Complete, tk ); ) 	// === PRINTER === //
+	prank = srank = grank = 0;  // cleanup - reset rankings
+	groupno += 1;               // cleanup - increment to next group number ticket
+} // TallyVotes::decide_tour
+
+/**
+ * TallyVotes::run_cs
+ *   Run the critical section - enter your ballot to vote!
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ *   @param ballot The currently running voter's ranked ballot.
+ */
+void run_cs( TallyVotes & this, uint id __attribute__(( unused )), Ballot & ballot ) with(this) {
+	[prank,srank,grank] += ballot.[picture,statue,giftshop];    // vote!
+	PRINT( print( printer, id, Vote, ballot ); ) 				// === PRINTER === //
+} // TallyVotes::run_cs
+
+
+// =============================== //
+// ===== TALLYVOTES EXT IMPL ===== //
+// =============================== //
+
+// DONE
+
+#if defined( EXT )
+
+/**
+ * TallyVotes::waitfor_group
+ *   Wait for a group of `group` voters to participate. May have to check for quorum failure after! No exception is 
+ *   thrown from this helper method, and does not detect quorum failure directly. Only forms a G-size group with voters
+ *   and potentially done voters.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ */
+void waitfor_group( TallyVotes & mutex this, uint id __attribute__(( unused )),
+					bool printLogs __attribute__(( unused )) = false ) with(this) {
+	uint order = blocked; 					// track number of blocked voters before self
+	if ( blocked+1 < group ) { 				// not the G^th / last voter ?s
+		blocked += 1; 						// count self as blocked (increment)
+		PRINT( if (printLogs) print( printer, id, Block, blocked ); ) 	// === PRINTER === //
+
+		while ( blocked > order ) { 		// bounded loop - no more than V iters
+			   waitfor( vote:this ) ; 		// await cooperation from more voters
+			or waitfor( done:this ) 		// await cooperation from done voters
+				PRINT( if (printLogs) print( printer, id, Done ); ); 	// === PRINTER === //
+		} // while
+
+		PRINT( if (printLogs) print( printer, id, Unblock, blocked ); ) // === PRINTER === //
+	} else if ( voters >= group ) { 		// is the G^th / last voter and no quorum failure ?
+		decide_tour( this, id ); 			// only G^th voter computes result (here) !
+	} // if
+
+	if ( blocked > 0 ) { 					// not the first voter ?
+		blocked -= 1;						// decrement previous voter's count
+	} // if 								// G^th voter starts daisy-chain with first decrement
+} // TallyVotes::waitfor_group
+
+/**
+ * TallyVotes::vote (EXT)
+ *   Vote and form a tour group if possible.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ *   @param ballot The currently running voter's ranked ballot.
+ *   @return The tour voted upon and the belonging group.
+ *   @throws `Failed` If a quorum failure is detected.
+ */
+Tour vote( TallyVotes & mutex this, uint id, Ballot ballot ) with(this) {
+	quorum_check( this ); 				// check for quorum failure first (case: new votes after failure)
+	run_cs( this, id, ballot ); 		// no barging => you *should* be a voter => safe to run vote
+	waitfor_group( this, id, true );	// wait for a group to form -- may be partial group for quorum failure
+	quorum_check( this ); 				// check if woken up because of quorum failure
+	return res; 						// no barging => safe to use shared result without explicit copy
+} // TallyVotes::vote (EXT)
+
+/**
+ * TallyVotes::done (EXT)
+ *   Indicate that this voter is done with all their tours, and help cleanup if needed.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ */
+void done( TallyVotes & mutex this, uint id __attribute__(( unused )) ) with(this) {
+	voters -= 1; 					// mark self as done
+	// ignore if no quorum failure or no trapped voters
+	if ( voters >= group || blocked == 0 ) { return; }
+	// otherwise, cooperate with trapped voters
+	waitfor_group( this, id );
+} // TallyVotes::done (EXT)
+
+
+// =============================== //
+// ===== TALLYVOTES INT IMPL ===== //
+// =============================== //
+
+// DONE
+
+#elif defined( INT )
+
+/**
+ * TallyVotes::vote (INT)
+ *   Vote and form a tour group if possible.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ *   @param ballot The currently running voter's ranked ballot.
+ *   @return The tour voted upon and the belonging group.
+ *   @throws `Failed` If a quorum failure is detected.
+ */
+Tour vote( TallyVotes & mutex this, uint id, Ballot ballot ) with(this) {
+	quorum_check( this ); 			// check for quorum failure first (case: new votes after failure)
+	run_cs( this, id, ballot ); 	// no barging => you *should* be a voter => safe to run vote
+	
+	if ( blocked+1 < group ) { 		// not the G^th / last voter ?
+		blocked += 1;				// count self as a waiting voter
+		PRINT( print( printer, id, Block, blocked ); ) 		// === PRINTER === //
+		wait( bench );
+		blocked -= 1; 				// uncount self from waiting queue
+		PRINT( print( printer, id, Unblock, blocked ); ) 	// === PRINTER === //
+
+	} else { 						// is the G^th / last voter ?
+		decide_tour( this, id ); 	// everyone's results in - run the ranked ballot
+		signal_all( bench );
+	} // if
+	quorum_check( this ); 			// last thing, check for quorum failure - this is the (catch) handler for rendevouz
+	return res; 					// no barging => safe to use shared result without explicit copy
+} // TallyVotes::vote (INT)
+
+/**
+ * TallyVotes::done (INT)
+ *   Indicate that this voter is done with all their tours, and help cleanup if needed.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ */
+void done( TallyVotes & mutex this, uint id __attribute__(( unused )) ) with(this) {
+	voters -= 1;                    		// mark self as done
+	// cooperate if quorum failed and voters are trapped
+	if ( voters < group && blocked > 0 ) {
+		signal_all( bench );
+	} // if
+} // TallyVotes::done (INT)
+
+
+// ================================ //
+// ===== TALLYVOTES INTB IMPL ===== //
+// ================================ //
+
+// DONE
+
+#elif defined( INTB )
+
+/**
+ * TallyVotes::wait
+ *   Blocking in Java simulation implicit condition - allow barging to occur!
+ *   @param this This vote tallier object.
+ */
+void wait( TallyVotes & mutex this ) with(this) {
+	wait( bench ); 					// wait until signalled
+	while ( rand() % 2 == 0 ) { 	// multiple bargers allowed
+		waitfor( vote:this ) {}		// accept barging callers
+		or waitfor( done:this ) {}
+		or else {}					// do not wait if no callers
+		// no rendevouz failure to worry about in cfa for now :)
+	} // while
+} // TallyVotes::wait
+
+/**
+ * TallyVotes::signal_all
+ *   Signalling in Java simulation implicit condition - drain the condition.
+ *   @param this This vote tallier object.
+ */
+void signal_all( TallyVotes & mutex this ) {
+	(void) signal_all( this.bench );
+} // TallyVotes::signalAll
+
+/**
+ * TallyVotes::vote (INTB)
+ *   Vote and form a tour group if possible.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ *   @param ballot The currently running voter's ranked ballot.
+ *   @return The tour voted upon and the belonging group.
+ *   @throws `Failed` If a quorum failure is detected.
+ */
+Tour vote( TallyVotes & mutex this, uint id, Ballot ballot ) with(this) {
+	while ( signalling ) { 			// while tour group still forming ?
+		barging += 1; 				// register self as barger
+		PRINT( print( printer, id, Barging, barging, groupno-1 ); ) // === PRINTER === //
+		wait( this ); 				// wait for grouping to complete
+		barging -= 1; 				// unregister self as barger
+	} // while 						// may be accidently woken up by incoming done threads
+
+	VOTER_ENTER( group ); 			// barging check entrance
+	struct guard_t {};
+	void ^?{}( guard_t & ) {
+		VOTER_LEAVE( this.group );
+	} // dtor
+	(guard_t){}; 					// RAII guard barging check exit
+
+	quorum_check( this ); 			// check quorum failure
+	run_cs( this, id, ballot ); 	// cast ranked ballot
+	
+	uint order = blocked+1;
+	if ( order < group ) { 			// not the G^th / last voter ?
+		blocked += 1; 				// register self as voter
+		PRINT( print( printer, id, Block, blocked ); ) 			// === PRINTER === //
+		wait( this ); 				// wait for grouping to complete
+		blocked -= 1; 				// unregister self as voter
+		PRINT( print( printer, id, Unblock, blocked ); ) 			// === PRINTER === //
+		if ( ! signalling ) { 		// no group formed ?
+			quorum_check( this );	// check for quorum failure from wakeup
+		} // if
+
+	} else { 						// is the G^th / last voter ?
+		decide_tour( this, id ); 	// everyone's results in - run the ranking vote
+		signalling = true; 			// set flag to indicate start of group forming
+		signal_all( this ); 		// wakeup everyone read for the tour group
+	} // if
+
+	if ( blocked == 0 ) { 			// is the last voter leaving ?
+		signalling = false; 		// unset flag to indicate end of group forming
+		signal_all( this ); 		// wakeup bargers - no longer barging!s
+	} // if
+	return res; 					// no barging => safe to use shared result without explicit copy
+} // TallyVotes::vote (INTB)
+
+/**
+ * TallyVotes::done (INTB)
+ *   Indicate that this voter is done with all their tours, and help cleanup if needed.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ */
+void done( TallyVotes & mutex this, uint id __attribute__(( unused )) ) with(this) {
+	// let done voters barge
+	voters -= 1;
+	// cooperate if quorum failed and voters are trapped
+	if ( voters < group && blocked > 0 ) {
+		signal_all( this );
+	} // if
+} // TallyVotes::done (INTB)
+
+
+// ================================ //
+// ===== TALLYVOTES AUTO IMPL ===== //
+// ================================ //
+
+// DONE
+
+#elif defined( AUTO )
+
+/**
+ * TallyVotes::vote (AUTO)
+ *   Vote and form a tour group if possible.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ *   @param ballot The currently running voter's ranked ballot.
+ *   @return The tour voted upon and the belonging group.
+ *   @throws `Failed` If a quorum failure is detected.
+ */
+Tour vote( TallyVotes & mutex this, uint id, Ballot ballot ) with(this) {
+	DEFEREXIT(); 					// Ensure EXIT called before leaving this mutex member
+	quorum_check( this ); 			// check for quorum failure first
+	run_cs( this, id, ballot ); 	// no barging => you *should* be a voter => safe to run vote
+
+	if ( blocked+1 < group ) { 		// not the G^th / last voter ?
+		WAITUNTIL(
+			groupFormed,
+			blocked += 1;
+			PRINT( print( printer, id, Block, blocked ); ),
+			blocked -= 1;
+			PRINT( print( printer, id, Unblock, blocked ); )
+		); // WAITUNTIL
+		quorum_check( this ); 		// check for quorum failure last
+	} else { 						// is the G^th / last voter ?
+		decide_tour( this, id ); 	// make tour decision
+		groupFormed = true; 		// signal completion of group formation
+	} // if
+
+	if ( blocked == 0 ) { 			// last voter leaving ?
+		groupFormed = false; 		// clean up, allow next group to form
+	} // if
+	return res; 					// no barging => safe to use shared result without explicit copy
+} // TallyVotes::vote (AUTO)
+
+/**
+ * TallyVotes::done (AUTO)
+ *   Indicate that this voter is done with all their tours, and help cleanup if needed.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ */	
+void done( TallyVotes & mutex this, uint id __attribute__(( unused )) ) with(this) {
+	DEFEREXIT(); 					// Ensure EXIT called before leaving this mutex member
+	voters -= 1;                    // mark self as done
+	// cooperate if quorum failed and voters are trapped
+	if ( voters < group && ! groupFormed ) {
+		groupFormed = true; 		// start wakeup daisy chain
+	} // done
+} // TallyVotes::done (AUTO)
+
+
+// ================================ //
+// ===== TALLYVOTES TASK IMPL ===== //
+// ================================ //
+
+// DONE
+
+// BUG: last signal_block does nullptr dereference
+// signal_block, false case fails
+// while ( signal_block( cv_entry ) ) {}
+
+#elif defined( TASK )
+
+/**
+ * TallyVotes::_vote
+ *   Awaits for synchronized entry into stage I (see `TV::main`) - voting intent. May detect quorum failures here!
+ *   @param this This vote tallier object.
+ *   @throws `Failed` If a quorum failure is detected.
+ */
+void _vote( TallyVotes & mutex this ) with(this) {
+	wait( cv_vote ); 		// wait turn to declare intent
+	quorum_check( this ); 	// handle any quorum failure, **locally**
+} // TallyVotes::_vote
+
+/**
+ * TallyVotes::_cast
+ *   Voter now casts their ranked ballot for the tour - stage II (see `TV::main`) - cast vote.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ *   @param ballot The currently running voter's ranked ballot.
+ *   @return The tour voted upon and the belonging group.
+ */
+Tour _cast( TallyVotes & mutex this, uint id, Ballot & ballot ) with(this) {
+	this.id = id; 					// explicitly copy-out this voter's id
+	run_cs( this, id, ballot ); 	// Cast ranked ballot vote (critical section)
+	PRINT( print( printer, id, Block, blocked+1 ); )	// === PRINTER === //
+	wait( cv_cast ); 				// block for internal tour group sync
+	PRINT( print( printer, id, Unblock, blocked ); )	// === PRINTER === //
+	return res; 					// return copy (implicit copy-in)
+} // TallyVotes::_cast
+
+
+/**
+ * TallyVotes::vote (TASK)
+ *   Vote and form a tour group if possible.
+ *   @param this This vote tallier object. WARNING: Cannot acquire mutex before this call!
+ *   @param id The currently running voter's identifier.
+ *   @param ballot The currently running voter's ranked ballot.
+ *   @return The tour voted upon and the belonging group.
+ *   @throws `Failed` If a quorum failure is detected.
+ */
+Tour vote( TallyVotes & this, uint id, Ballot ballot ) {
+	_vote( this ); 						// phase I
+	return _cast( this, id, ballot ); 	// phase II and (III implicit)
+} // TallyVotes::vote (TASK)
+
+/**
+ * TallyVotes::done (TASK)
+ *   Indicate that this voter is done with all their tours, and help cleanup if needed.
+ *   @param this This vote tallier object.
+ *   @param id The currently running voter's identifier.
+ */	
+void done( TallyVotes & mutex this, uint id ) with(this) {
+	this.id = id; 	// explicitly copy-out this voter's id
+} // TallyVotes::done (TASK)
+
+/**
+ * TallyVotes::main
+ *   Synchronize/schedule the Louvre tour groups, allowing asynchronous touring after start.
+ *   @param this This vote tallier object.
+ */
+void main( TallyVotes & this ) with(this) {
+	// === KEEP FORMING GROUPS === //
+	while ( voters >= group && voters > 0 ) { 	// ... until not needed (quorum failure OR no voters left)
+
+		// === (I) VOTE === //
+		while ( blocked < group ) { 			// try forming a G-sized group
+			waitfor ( done:this ) { 			// accept done voters - quorum failure cooperation
+				PRINT( print( printer, id, Done ); ) 	// === PRINTER === //
+				voters -= 1; 					// mark leaving voter
+				if ( voters < group ) { 		// quorum failure ?
+					blocked += 1; 				// cooperate by posing as new voter
+				} // if
+			} or waitfor ( _vote:this ) { 		// accept new voters
+				blocked += 1; 					// count incoming new voter
+			} // waitfor
+		} // while
+
+		if ( voters < group ) { 				// quorum failure ?
+			for ( voters ) { 					// for each remaining voter (in "group")
+				signal_block( cv_vote ); 		// wake up trapped voter
+			} // for
+			break; 								// stop forming groups !
+		} // if
+		blocked = 0; 							// otherwise, reset counter for stage II
+
+		// === (II) CAST === //
+		while ( blocked < group ) { 			// advance the G-size group to cast all votes
+			if ( ! empty( cv_vote ) ) { 		// more voters to wakeup for casting ?
+				signal_block( cv_vote );		// daisy-chain wakeup
+			} // if
+			waitfor ( _cast:this ) { 			// accept casting voters
+				blocked += 1;					// count incoming casting voter
+			} // waitfor
+		} // while
+		decide_tour( this, id ); 				// run tour vote exactly once, here
+
+		// === (III) TOUR === //
+		while ( blocked > 0 ) { 				// release all G tourists in the group, one-by-one
+			blocked -= 1; 						// revoke count for voter to be awoken
+			signal_block( cv_cast ); 			// daisy-chain wakeup
+		} // while
+	} // while
+
+	while ( voters > 0 ) { 				// any lagging done voters ?
+		waitfor ( done:this ) { 		// only expect (and accept!) done voters
+			PRINT( print( printer, id, Done ); )
+			voters -= 1; 				// mark lagging voter
+		} // waitfor
+	} // while
+} // TallyVotes::main
+
+#endif
+
+
+// ================================= //
+// ===== VOTER PRIVATE MEMBERS ===== //
+// ================================= //
+
+/**
+ * cast
+ *   Device a 3-way vote offering O(1) random selection of 3 items without replacement via divide and conquer.
+ *   @return The (pseudo-)random ballot to cast.
+ */
+Ballot cast() __attribute__(( warn_unused_result )) {
+	static const uint voting[3][2][2] = { { {2,1}, {1,2} }, { {0,2}, {2,0} }, { {0,1}, {1,0} } };
+	uint picture = prng( 3 ), statue = prng( 2 );
+	return (Ballot){ picture, voting[picture][statue][0], voting[picture][statue][1] };
+} // cast
+
+/**
+ * Voter::main
+ *   Simulate touring the Louvre by this particular tourist via ranked ballot voting.s
+ *   @param this This voter task/thread.
+ */
+void main( Voter & this ) with(this) {
+	uint pcnt = 0, scnt = 0, gcnt = 0;                      // retain counts for each
+	yield( prng( 20 ) );                                    // === YIELD === //
+	try {                                                   // ready to catch Failed exception
+		for ( tours ) {                                     // run tours iteratively
+			PRINT( print( printer, id, Start ); ) 			// print start message
+			yield( prng( 5 ) ); 							// === YIELD === //
+
+			Tour tour = vote( voteTallier, id, cast() ); 	// vote (ranked ballot)
+			choose ( tour.tourkind ) {                      // record the tour going on
+				case Picture: pcnt += 1;
+				case Statue: scnt += 1;
+				case GiftShop: gcnt += 1;
+			} // choose
+
+			yield( prng( 5 ) ); 							// === YIELD === //
+			PRINT( print( printer, id, Going, tour ); ) 	// === PRINTER === //
+		} // for
+	} catch( Failed * ) {                                   // quorum failure signalled ?
+		PRINT( print( printer, id, Failure ); ) 			// === PRINTER === //
+	} // try
+	done( voteTallier, id ); 								// eventually report done
+	PRINT( print( printer, id, Terminated, (Ballot){pcnt,scnt,gcnt} ); ) 	// === PRINTER === //
+} // Voter::main
+
+
+// ================================ //
+// ===== VOTER PUBLIC MEMBERS ===== //
+// ================================ //
+
+/**
+ * Voter::ctor
+ *   Setup the tourist's parameters before voting/touring the Louvre.
+ *   @param this This voter task/thread.
+ *   @param id This voter thread's identifier (in order of creation).
+ *   @param tours The number of tours this voter would like to attend.
+ *   @param voteTallier The voting mechanism.
+ *   @param printer The output mechanism.
+ */
+void ?{}( Voter & this, uint id, uint tours, TallyVotes & voteTallier, Printer & printer ) {
+	this.[id, tours] = [id, tours];
+	&this.voteTallier = &voteTallier;
+	&this.printer = &printer;
+} // Voter::ctor
